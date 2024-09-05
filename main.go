@@ -2,8 +2,9 @@ package main
 
 import (
 	"database/sql"
+
 	"go_final_project/handler"
-	"go_final_project/tasks"
+	cases "go_final_project/tasks"
 	"log"
 	"net/http"
 	"os"
@@ -65,10 +66,8 @@ func CreatDb() *sql.DB {
 }
 
 func main() {
-
 	db := CreatDb()
 	defer db.Close()
-
 	// Определяем путь к файлу базы данных через переменную окружения
 	port := "7540"
 	envPort := os.Getenv("TODO_PORT")
@@ -81,7 +80,13 @@ func main() {
 
 	// обработчики:
 	http.HandleFunc("/api/nextdate", handler.NextDateHandler)
-	http.HandleFunc("POST /api/task", handler.PostTaskHandler(tasks.Datab{}))
+
+	http.HandleFunc("POST /api/task", handler.PostTaskHandler(cases.Datab{}))
+	http.HandleFunc("GET /api/task", handler.GetTaskHandler(cases.Datab{}))
+	http.HandleFunc("/api/tasks", handler.GetTasksHandler(cases.Datab{}))
+	http.HandleFunc("PUT /api/task", handler.PutTaskHandler(cases.Datab{}))
+	http.HandleFunc("/api/task/done", handler.DoneTaskHandler(cases.Datab{}))
+	http.HandleFunc("DELETE /api/task", handler.DeleteTaskHandler(cases.Datab{}))
 
 	err := http.ListenAndServe(port, nil)
 	if err != nil {

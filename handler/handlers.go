@@ -1,11 +1,10 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-
-	tasks "go_final_project/tasks"
+	cases "go_final_project/tasks"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,8 +24,8 @@ type Reply struct {
 	Error string `json:"error,omitempty"`
 }
 
-type Datab struct {
-	db *sql.DB
+var ErrorResponses struct {
+	Error string `json:"error,omitempty"`
 }
 
 func NextDate(now time.Time, date string, repeat string) (string, error) {
@@ -95,16 +94,16 @@ func NextDateHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(nextDate))
 }
 
-// Обработчик POST "POST /api/task"
-func PostTaskHandler(datab tasks.Datab) http.HandlerFunc {
+// обработчик POST "POST /api/task"
+func PostTaskHandler(datab cases.Datab) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var task Task
 		err := json.NewDecoder(req.Body).Decode(&task)
 		if err != nil {
-			http.Error(w, "Ошибка десериализации JSON", http.StatusBadRequest)
+			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
 			return
 		}
-		id, err := datab.AddTask(tasks.Task{})
+		id, err := datab.AddTask(cases.Task{})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -112,9 +111,114 @@ func PostTaskHandler(datab tasks.Datab) http.HandlerFunc {
 
 		reply := Reply{ID: id}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		if err := json.NewEncoder(w).Encode(reply); err != nil {
-			http.Error(w, "Ошибка кодирования JSON", http.StatusInternalServerError)
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// обработчик GET для "GET /api/task"
+func GetTaskHandler(datab cases.Datab) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var task cases.Task
+		id := req.URL.Query().Get("id")
+		task, err := datab.GetTask(id)
+		if err != nil {
+			err := errors.New("задача с таким id не найдена")
+			ErrorResponses.Error = err.Error()
+			json.NewEncoder(w).Encode(ErrorResponses)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(task); err != nil {
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// обработчик GET для "/api/tasks"
+func GetTasksHandler(datab cases.Datab) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+
+		SearchParameters := req.URL.Query().Get("search")
+		tasks, err := datab.GetTasks(SearchParameters)
+		if err != nil {
+			if err != nil {
+				err := errors.New("ошибка запроса к базе данных")
+				ErrorResponses.Error = err.Error()
+				json.NewEncoder(w).Encode(ErrorResponses)
+				return
+			}
+		}
+
+		reply := map[string][]cases.Task{
+			"tasks": tasks,
+		}
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(reply); err != nil {
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// обработчик PUT для "PUT /api/task"
+func PutTaskHandler(datab cases.Datab) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var task Task
+		err := json.NewDecoder(req.Body).Decode(&task)
+		if err != nil {
+			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
+			return
+		}
+		err = datab.UpdateTask(cases.Task{})
+		if err != nil {
+			http.Error(w, "задача не найдена", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(map[string]string{}); err != nil {
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// обработчик для "/api/task/done"
+func DoneTaskHandler(datab cases.Datab) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		id := req.URL.Query().Get("id")
+		err := datab.TaskDone(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(map[string]string{}); err != nil {
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// обработчик DELETE для "DELETE /api/task"
+func DeleteTaskHandler(datab cases.Datab) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		id := req.URL.Query().Get("id")
+		err := datab.DeleteTask(id)
+		if err != nil {
+			err := errors.New("задача с таким id не найдена")
+			ErrorResponses.Error = err.Error()
+			json.NewEncoder(w).Encode(ErrorResponses)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(map[string]string{}); err != nil {
+			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
 			return
 		}
 	}
