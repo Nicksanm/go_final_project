@@ -11,14 +11,6 @@ import (
 	"time"
 )
 
-type Task struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
-}
-
 type Reply struct {
 	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
@@ -34,7 +26,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		return "", fmt.Errorf("не указана строка")
 	}
 
-	nowDate, err := time.Parse("20060102", date)
+	nowDate, err := time.Parse(cases.DateFormat, date)
 
 	if err != nil {
 		return "", fmt.Errorf("неверный формат даты: %v", err)
@@ -57,14 +49,14 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		for newDate.Before(now) {
 			newDate = newDate.AddDate(0, 0, moreDays)
 		}
-		return newDate.Format("20060102"), nil
+		return newDate.Format(cases.DateFormat), nil
 
 	case "y":
 		newDate := nowDate.AddDate(1, 0, 0)
 		for newDate.Before(now) {
 			newDate = newDate.AddDate(1, 0, 0)
 		}
-		return newDate.Format("20060102"), nil
+		return newDate.Format(cases.DateFormat), nil
 
 	default:
 		return "", fmt.Errorf("неверный ввод")
@@ -78,7 +70,7 @@ func NextDateHandler(w http.ResponseWriter, req *http.Request) {
 	date := req.FormValue("date")
 	repeat := req.FormValue("repeat")
 
-	nowTime, err := time.Parse("20060102", now)
+	nowTime, err := time.Parse(cases.DateFormat, now)
 	if err != nil {
 		http.Error(w, "неверный формат даты", http.StatusBadRequest)
 		return
@@ -97,7 +89,7 @@ func NextDateHandler(w http.ResponseWriter, req *http.Request) {
 // обработчик POST "POST /api/task"
 func PostTaskHandler(datab cases.Datab) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var task Task
+		var task cases.Task
 		err := json.NewDecoder(req.Body).Decode(&task)
 		if err != nil {
 			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
@@ -169,7 +161,7 @@ func GetTasksHandler(datab cases.Datab) http.HandlerFunc {
 // обработчик PUT для "PUT /api/task"
 func PutTaskHandler(datab cases.Datab) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var task Task
+		var task cases.Task
 		err := json.NewDecoder(req.Body).Decode(&task)
 		if err != nil {
 			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)

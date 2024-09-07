@@ -3,13 +3,18 @@ package cases
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
+
+	"github.com/nicksanm/go_final_project/handler"
+
+	"log"
+	"os"
+	"path/filepath"
 	"time"
 )
 
 const (
 	LimitTasks = 30
+	DateFormat = "20060102"
 )
 
 type Task struct {
@@ -23,73 +28,86 @@ type Datab struct {
 	db *sql.DB
 }
 
-func NextDate(now time.Time, date string, repeat string) (string, error) {
+// Создаем базу данных
+func CreatDb() *sql.DB {
 
-	if repeat == "" {
-		return "", fmt.Errorf("не указана строка")
-	}
-
-	nowDate, err := time.Parse("20060102", date)
-
+	appPath, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("неверный формат даты: %v", err)
+		log.Fatal(err)
+	}
+	dbFile := filepath.Join(filepath.Dir(appPath), "scheduler.db")
+	_, err = os.Stat(dbFile)
+	// путь к файлу базы данных через переменную окружения.
+	envFile := os.Getenv("TODO_DBFILE")
+	if len(envFile) > 0 {
+		dbFile = envFile
+	}
+	log.Println("Путь к базе данных", dbFile)
+
+	var install bool
+	if err != nil {
+		install = true
+	}
+	// если install равен true, после открытия БД требуется выполнить
+	// sql-запрос с CREATE TABLE и CREATE INDEX
+	db, err := sql.Open("sqlite", "scheduler.db")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	parts := strings.Split(repeat, " ")
+	defer db.Close()
 
-	editParts := parts[0]
-
-	switch editParts {
-	case "d":
-		if len(parts) < 2 {
-			return "", fmt.Errorf("не указано количество дней")
+	if install {
+		Table := `CREATE TABLE IF NOT EXISTS scheduler (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				date CHAR(8) NOT NULL,
+				title TEXT NOT NULL,
+				comment TEXT, 
+				repeat VARCHAR(128) NOT NULL
+				);`
+		_, err = db.Exec(Table)
+		if err != nil {
+			log.Fatal(err)
 		}
-		moreDays, err := strconv.Atoi(parts[1])
-		if err != nil || moreDays < 1 || moreDays > 400 {
-			return "", fmt.Errorf("превышен максимально допустимый интервал дней")
-		}
-		newDate := nowDate.AddDate(0, 0, moreDays)
-		for newDate.Before(now) {
-			newDate = newDate.AddDate(0, 0, moreDays)
-		}
-		return newDate.Format("20060102"), nil
 
-	case "y":
-		newDate := nowDate.AddDate(1, 0, 0)
-		for newDate.Before(now) {
-			newDate = newDate.AddDate(1, 0, 0)
+		Index := `CREATE INDEX IF NOT EXISTS scheduler_date ON scheduler(date);`
+		_, err = db.Exec(Index)
+		if err != nil {
+			log.Fatal(err)
 		}
-		return newDate.Format("20060102"), nil
-
-	default:
-		return "", fmt.Errorf("неверный ввод")
-
+		log.Println("База данных создана")
 	}
+	return db
 }
+
+func NewDatab(db *sql.DB) Datab {
+	return Datab{db: db}
+}
+
 func (d *Datab) AddTask(task Task) (string, error) {
 	var err error
 
 	if task.Date == "" {
-		task.Date = time.Now().Format("20060102")
+		task.Date = time.Now().Format(DateFormat)
 	}
 	if task.Title == "" {
 		return "", fmt.Errorf("не указан заголовок задачи")
 	}
 
-	_, err = time.Parse("20060102", task.Date)
+	_, err = time.Parse(DateFormat, task.Date)
 	if err != nil {
 		return "", fmt.Errorf("неверный формат даты")
 	}
 	// Если дата меньше time.Now, то устанавливаем NextDate
-	if task.Date < time.Now().Format("20060102") {
+	if task.Date < time.Now().Format(DateFormat) {
 		if task.Repeat != "" {
-			nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+			nextDate, err := handler.NextDate(time.Now(), task.Date, task.Repeat)
 			if err != nil {
 				return "", fmt.Errorf("некорректное правило повторения")
 			}
 			task.Date = nextDate
 		} else {
-			task.Date = time.Now().Format("20060102")
+			task.Date = time.Now().Format(DateFormat)
 		}
 	}
 
@@ -154,24 +172,24 @@ func (d *Datab) UpdateTask(task Task) error {
 		return fmt.Errorf("не указан идентификатор")
 	}
 	if task.Date == "" {
-		task.Date = time.Now().Format("20060102")
+		task.Date = time.Now().Format(DateFormat)
 	}
 
-	_, err := time.Parse("20060102", task.Date)
+	_, err := time.Parse(DateFormat, task.Date)
 	if err != nil {
 		return fmt.Errorf("неверный формат даты")
 	}
 	// Если дата меньше time.Now, то устанавливаем NextDate
-	if task.Date < time.Now().Format("20060102") {
+	if task.Date < time.Now().Format(DateFormat) {
 		if task.Repeat != "" {
-			nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+			nextDate, err := handler.NextDate(time.Now(), task.Date, task.Repeat)
 			if err != nil {
 
 				return fmt.Errorf("некорректное правило повторения")
 			}
 			task.Date = nextDate
 		} else {
-			task.Date = time.Now().Format("20060102")
+			task.Date = time.Now().Format(DateFormat)
 		}
 	}
 
@@ -218,7 +236,7 @@ func (d *Datab) TaskDone(id string) error {
 		}
 
 	} else {
-		next, err := NextDate(time.Now(), task.Date, task.Repeat) // расчет следующей даты
+		next, err := handler.NextDate(time.Now(), task.Date, task.Repeat) // расчет следующей даты
 		if err != nil {
 			return err
 		}
