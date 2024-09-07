@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/nicksanm/go_final_project/handler"
+	handler "github.com/nicksanm/go_final_project/handler"
 
 	"log"
 	"os"
@@ -126,20 +126,20 @@ func (d *Datab) AddTask(task Task) (string, error) {
 }
 
 // Получаем список ближайших задач
-func (d *Datab) GetTasks(search string) ([]Task, error) {
+func (d *Datab) GetTasks() ([]Task, error) {
 	var task Task
 	var tasks []Task
-	var row *sql.Rows
+	var rows *sql.Rows
 	var err error
-	row, err = d.db.Query(`SELECT * FROM scheduler ORDER BY date ASC LIMIT :limit`, sql.Named("limit", LimitTasks))
+	rows, err = d.db.Query(`SELECT * FROM scheduler ORDER BY date ASC LIMIT :limit`, sql.Named("limit", LimitTasks))
 
 	if err != nil {
 		return []Task{}, fmt.Errorf("ошибка запроса")
 	}
-	defer row.Close()
-	for row.Next() {
-		err := row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
-		if err = row.Err(); err != nil {
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		if err = rows.Err(); err != nil {
 			return []Task{}, fmt.Errorf("ошибка распознавания данных")
 		}
 		tasks = append(tasks, task)

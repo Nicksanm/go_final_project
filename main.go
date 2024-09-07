@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/nicksanm/go_final_project/handler"
+	handler "github.com/nicksanm/go_final_project/handler"
 	cases "github.com/nicksanm/go_final_project/tasks"
 
 	"net/http"
@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+
 	db := cases.CreatDb()
 	defer db.Close()
 	datab := cases.NewDatab(db)
