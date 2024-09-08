@@ -3,8 +3,8 @@ package cases
 import (
 	"database/sql"
 	"fmt"
-
-	handler "github.com/nicksanm/go_final_project/handler"
+	"strconv"
+	"strings"
 
 	"log"
 	"os"
@@ -84,45 +84,89 @@ func NewDatab(db *sql.DB) Datab {
 	return Datab{db: db}
 }
 
+func NextDate(now time.Time, date string, repeat string) (string, error) {
+
+	if repeat == "" {
+		return "", fmt.Errorf("не указана строка")
+	}
+
+	nowDate, err := time.Parse(DateFormat, date)
+
+	if err != nil {
+		return "", fmt.Errorf("неверный формат даты: %v", err)
+	}
+
+	parts := strings.Split(repeat, " ")
+
+	editParts := parts[0]
+
+	switch editParts {
+	case "d":
+		if len(parts) < 2 {
+			return "", fmt.Errorf("не указано количество дней")
+		}
+		moreDays, err := strconv.Atoi(parts[1])
+		if err != nil || moreDays < 1 || moreDays > 400 {
+			return "", fmt.Errorf("превышен максимально допустимый интервал дней")
+		}
+		newDate := nowDate.AddDate(0, 0, moreDays)
+		for newDate.Before(now) {
+			newDate = newDate.AddDate(0, 0, moreDays)
+		}
+		return newDate.Format(DateFormat), nil
+
+	case "y":
+		newDate := nowDate.AddDate(1, 0, 0)
+		for newDate.Before(now) {
+			newDate = newDate.AddDate(1, 0, 0)
+		}
+		return newDate.Format(DateFormat), nil
+
+	default:
+		return "", fmt.Errorf("неверный ввод")
+
+	}
+}
+
 func (d *Datab) AddTask(task Task) (string, error) {
 	var err error
-
 	if task.Date == "" {
 		task.Date = time.Now().Format(DateFormat)
-	}
-	if task.Title == "" {
-		return "", fmt.Errorf("не указан заголовок задачи")
 	}
 
 	_, err = time.Parse(DateFormat, task.Date)
 	if err != nil {
-		return "", fmt.Errorf("неверный формат даты")
+		return "", fmt.Errorf(`{"error":"Неверный формат даты"}`)
 	}
 	// Если дата меньше time.Now, то устанавливаем NextDate
 	if task.Date < time.Now().Format(DateFormat) {
 		if task.Repeat != "" {
-			nextDate, err := handler.NextDate(time.Now(), task.Date, task.Repeat)
+			nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
 			if err != nil {
-				return "", fmt.Errorf("некорректное правило повторения")
+				return "", fmt.Errorf(`{"error":"Неверное правило повторения"}`)
 			}
 			task.Date = nextDate
 		} else {
 			task.Date = time.Now().Format(DateFormat)
 		}
 	}
+	if task.Title == "" {
+		return "", fmt.Errorf(`{"error":"Не указан заголовок задачи"}`)
+	}
 
 	// Добавляем задачу в базу данных
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (:date, :title, :comment, :repeat)`
 	res, err := d.db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
-		return "", fmt.Errorf("задача не добавлена")
+		return "", fmt.Errorf(`{"error":"Задача не добавлена"}`)
 	}
+
 	//  Идентификатор созданной задачи
 	id, err := res.LastInsertId()
 	if err != nil {
-		return "", fmt.Errorf("id созданной задачи не удалось вернуть")
+		return "", fmt.Errorf(`{"error":"id созданной задачи не удалось вернуть"}`)
 	}
-	return fmt.Sprintf("%d", id), err
+	return fmt.Sprintf("%d", id), nil
 }
 
 // Получаем список ближайших задач
@@ -134,13 +178,13 @@ func (d *Datab) GetTasks() ([]Task, error) {
 	rows, err = d.db.Query(`SELECT * FROM scheduler ORDER BY date ASC LIMIT :limit`, sql.Named("limit", LimitTasks))
 
 	if err != nil {
-		return []Task{}, fmt.Errorf("ошибка запроса")
+		return []Task{}, fmt.Errorf(`{"error":"Ошибка запроса"}`)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+
 		if err = rows.Err(); err != nil {
-			return []Task{}, fmt.Errorf("ошибка распознавания данных")
+			return []Task{}, fmt.Errorf(`{"error":"Ошибка распознавания данных"}`)
 		}
 		tasks = append(tasks, task)
 	}
@@ -182,7 +226,7 @@ func (d *Datab) UpdateTask(task Task) error {
 	// Если дата меньше time.Now, то устанавливаем NextDate
 	if task.Date < time.Now().Format(DateFormat) {
 		if task.Repeat != "" {
-			nextDate, err := handler.NextDate(time.Now(), task.Date, task.Repeat)
+			nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
 			if err != nil {
 
 				return fmt.Errorf("некорректное правило повторения")
@@ -236,7 +280,7 @@ func (d *Datab) TaskDone(id string) error {
 		}
 
 	} else {
-		next, err := handler.NextDate(time.Now(), task.Date, task.Repeat) // расчет следующей даты
+		next, err := NextDate(time.Now(), task.Date, task.Repeat) // расчет следующей даты
 		if err != nil {
 			return err
 		}
