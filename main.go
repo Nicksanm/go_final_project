@@ -1,8 +1,8 @@
 package main
 
 import (
-	handler "go_final_project/handler"
-	cases "go_final_project/tasks"
+	handler "go_final_project/internal/handler"
+	cases "go_final_project/internal/tasks"
 
 	"net/http"
 	"os"

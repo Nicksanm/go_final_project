@@ -7,13 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	cases "go_final_project/tasks"
+	cases "go_final_project/internal/tasks"
 )
-
-type Reply struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-}
 
 var ErrorResponses struct {
 	Error string `json:"error,omitempty"`
@@ -50,19 +45,23 @@ func PostTaskHandler(datab cases.Datab) http.HandlerFunc {
 			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
 			return
 		}
-		id, err := datab.AddTask(cases.Task{})
+		id, err := datab.AddTask(task)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		reply := Reply{ID: id}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		if err := json.NewEncoder(w).Encode(reply); err != nil {
-			http.Error(w, "ошибка кодирования JSON", http.StatusInternalServerError)
+		reply := map[string]string{
+			"id": id,
+		}
+		res, err := json.Marshal(reply)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(res)
 	}
 }
 
@@ -90,8 +89,8 @@ func GetTaskHandler(datab cases.Datab) http.HandlerFunc {
 // обработчик GET для "/api/tasks"
 func GetTasksHandler(datab cases.Datab) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-
-		tasks, err := datab.GetTasks()
+		taskSearch := req.URL.Query().Get("search")
+		tasks, err := datab.GetTasks(taskSearch)
 
 		if err != nil {
 			err := errors.New("ошибка запроса к базе данных")

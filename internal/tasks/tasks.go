@@ -62,7 +62,7 @@ func CreatDb() *sql.DB {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				date CHAR(8) NOT NULL,
 				title TEXT NOT NULL,
-				comment TEXT, 
+				comment TEXT DEFAULT "",
 				repeat VARCHAR(128) NOT NULL
 				);`
 		_, err = db.Exec(Table)
@@ -164,25 +164,54 @@ func (d *Datab) AddTask(task Task) (string, error) {
 	//  Идентификатор созданной задачи
 	id, err := res.LastInsertId()
 	if err != nil {
-		return "", fmt.Errorf(`{"error":"id созданной задачи не удалось вернуть"}`)
+		log.Println("id созданной задачи не удалось вернуть")
+		return "", err
 	}
 	return fmt.Sprintf("%d", id), nil
 }
 
 // Получаем список ближайших задач
-func (d *Datab) GetTasks() ([]Task, error) {
+func (d *Datab) GetTasks(search string) ([]Task, error) {
 	var task Task
 	var tasks []Task
 	var rows *sql.Rows
 	var err error
-	rows, err = d.db.Query(`SELECT * FROM scheduler ORDER BY date ASC LIMIT :limit`, sql.Named("limit", LimitTasks))
+
+	date, err := time.Parse("02.01.2006", search)
+	if err != nil {
+		log.Println("Поиск(текст)")
+
+		rows, err = d.db.Query(
+			`SELECT id, date, title, comment, repeat 
+			FROM scheduler
+			WHERE title LIKE :object OR comment LIKE :object
+			ORDER BY date LIMIT :limit`,
+			sql.Named("object", "%"+search+"%"),
+			sql.Named("limit", LimitTasks),
+		)
+	} else {
+		log.Println("Поиск(дата)")
+
+		object := date.Format("20060102")
+
+		rows, err = d.db.Query(
+			`SELECT id, date, title, comment, repeat
+			   FROM scheduler
+			   WHERE date LIKE :object
+			   ORDER BY date LIMIT :limit`,
+			sql.Named("object", "%"+object+"%"),
+			sql.Named("limit", LimitTasks),
+		)
+	}
 
 	if err != nil {
-		return []Task{}, fmt.Errorf(`{"error":"Ошибка запроса"}`)
+		log.Println("задачу не найти", err)
+		return nil, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
-
+		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err = rows.Err(); err != nil {
 			return []Task{}, fmt.Errorf(`{"error":"Ошибка распознавания данных"}`)
 		}
