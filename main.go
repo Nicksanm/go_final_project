@@ -3,41 +3,42 @@ package main
 import (
 	handler "go_final_project/internal/handler"
 	cases "go_final_project/internal/tasks"
-
-	"net/http"
 	"os"
 
+	"net/http"
+
+	"github.com/go-chi/chi"
 	_ "modernc.org/sqlite"
 )
 
 func main() {
-
 	db := cases.CreatDb()
 	defer db.Close()
 	datab := cases.NewDatab(db)
-	// Определяем путь к файлу базы данных через переменную окружения
+
 	port := "7540"
 	envPort := os.Getenv("TODO_PORT")
 	if len(envPort) != 0 {
 		port = envPort
 	}
-	port = ":" + port
 
-	http.Handle("/", http.FileServer(http.Dir("./web")))
+	r := chi.NewRouter()
+
+	r.Handle("/", http.FileServer(http.Dir("./web")))
 
 	// обработчики:
-	http.HandleFunc("/api/nextdate", handler.NextDateHandler)
+	r.HandleFunc("/api/nextdate", handler.NextDateHandler)
 
-	http.HandleFunc("POST /api/task", handler.PostTaskHandler(datab))
-	http.HandleFunc("GET /api/task", handler.GetTaskHandler(datab))
-	http.HandleFunc("/api/tasks", handler.GetTasksHandler(datab))
-	http.HandleFunc("PUT /api/task", handler.PutTaskHandler(datab))
-	http.HandleFunc("/api/task/done", handler.DoneTaskHandler(datab))
-	http.HandleFunc("DELETE /api/task", handler.DeleteTaskHandler(datab))
-
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
+	r.Post("/api/task", handler.PostTaskHandler(datab))
+	r.Get("/api/tasks", handler.GetTasksHandler(datab))
+	r.Get("/api/task", handler.GetTaskHandler(datab))
+	r.Put("/api/task", handler.PutTaskHandler(datab))
+	r.Post("/api/task/done", handler.DoneTaskHandler(datab))
+	r.Delete("/api/task", handler.DeleteTaskHandler(datab))
+	// запускаем сервер
+	if err := http.ListenAndServe((":" + port), r); err != nil {
 		panic(err)
+
 	}
 
 }
