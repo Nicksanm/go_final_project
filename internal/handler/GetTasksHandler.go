@@ -16,7 +16,7 @@ func GetTasksHandler(datab cases.Datab) http.HandlerFunc {
 		tasks, err := datab.GetTasks(taskSearch)
 
 		if err != nil {
-			err := errors.New(`ошибка запроса к базе данных`)
+			err := errors.New("ошибка запроса к базе данных")
 			cases.ErrorResponses.Error = err.Error()
 			json.NewEncoder(w).Encode(cases.ErrorResponses)
 			return

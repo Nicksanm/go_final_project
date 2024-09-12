@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"go_final_project/internal/nextdate"
 	cases "go_final_project/internal/tasks"
 )
 
@@ -18,7 +19,7 @@ func NextDateHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "неверный формат даты", http.StatusBadRequest)
 		return
 	}
-	nextDate, err := cases.NextDate(nowTime, date, repeat)
+	nextDate, err := nextdate.NextDate(nowTime, date, repeat)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
