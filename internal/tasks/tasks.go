@@ -89,6 +89,10 @@ func NewDatab(db *sql.DB) Datab {
 
 func (d *Datab) AddTask(task Task) (string, error) {
 	var err error
+
+	if task.Title == "" {
+		return "", fmt.Errorf("не указан заголовок задачи")
+	}
 	if task.Date == "" {
 		task.Date = time.Now().Format(DateFormat)
 	}
@@ -109,12 +113,9 @@ func (d *Datab) AddTask(task Task) (string, error) {
 			task.Date = time.Now().Format(DateFormat)
 		}
 	}
-	if task.Title == "" {
-		return "", fmt.Errorf("не указан заголовок задачи")
-	}
 
 	// Добавляем задачу в базу данных
-	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES ($1, $2, $3, $4)`
+	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES ($1, $2, 3$, 4$)`
 	res, err := d.db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
 		return "", fmt.Errorf("задача не добавлена")
@@ -123,8 +124,7 @@ func (d *Datab) AddTask(task Task) (string, error) {
 	//  Идентификатор созданной задачи
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Println("id созданной задачи не удалось вернуть")
-		return "", err
+		return "", fmt.Errorf("id созданной задачи не удалось вернуть")
 	}
 	return fmt.Sprintf("%d", id), nil
 }
@@ -207,6 +207,10 @@ func (d *Datab) UpdateTask(task Task) error {
 	if task.ID == "" {
 		return fmt.Errorf("не указан идентификатор")
 	}
+	if task.Title == "" {
+		return fmt.Errorf("не указан заголовок задачи")
+	}
+
 	if task.Date == "" {
 		task.Date = time.Now().Format(DateFormat)
 	}
@@ -228,10 +232,6 @@ func (d *Datab) UpdateTask(task Task) error {
 		}
 	}
 
-	if task.Title == "" {
-		return fmt.Errorf("не указан заголовок задачи")
-	}
-	/// что-то не так
 	// Обновляем задачу в базе данных
 	query := `UPDATE scheduler SET date=?, title=?, comment=?, repeat=? WHERE id=?`
 	res, err := d.db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
@@ -245,8 +245,6 @@ func (d *Datab) UpdateTask(task Task) error {
 	if rowsTouched == 0 {
 		return fmt.Errorf("задача с таким id не найдена")
 	}
-
-	log.Println("задача изменена")
 
 	return nil
 }
