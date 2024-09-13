@@ -9,6 +9,7 @@ import (
 	cases "go_final_project/internal/tasks"
 )
 
+// chFile
 // обработчик DELETE для "/api/task"
 func DeleteTaskHandler(datab cases.Datab) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {

@@ -8,6 +8,7 @@ import (
 	cases "go_final_project/internal/tasks"
 )
 
+// chFile
 // обработчик "/api/nextdate"
 func NextDateHandler(w http.ResponseWriter, req *http.Request) {
 	now := req.FormValue("now")
